@@ -1,0 +1,11 @@
+# Databricks Notebook for future references
+# To read parameters from other Notebook/ADF use dbutils.widget.text() then read the data using dbutils. 
+# Create widgets (this will be used when the notebook is triggered from ADF or another notebook)
+dbutils.widgets.text("input_path", "")
+dbutils.widgets.text("run_date", "")
+
+# Read widget values
+input_path = dbutils.widgets.get("input_path")
+run_date = dbutils.widgets.get("run_date")
+
+# To run any SQL from python shell use saprk.sql
