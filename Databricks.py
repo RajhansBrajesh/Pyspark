@@ -41,9 +41,36 @@ spark.conf.set("fs.azure.account.oauth2.client.endpoint.<storage-account-name>.d
 #Now, you can read files directly using abfss:// path:
 <container-name> = bronze
 <storage-account-name> = 'az21q1datalake'
-file_path = "abfss://<container-name>@<storage-account-name>.dfs.core.windows.net/folder/data.csv"
+file_path = "abfss://<container-name>@<storage-account-name>.dfs.core.windows.net/folder/*.csv"
 df = spark.read.option("header", "true").csv(file_path)
 df.show()
+
+# To read parquet file
+file_path = "abfss://<container-name>@<storage-account-name>.dfs.core.windows.net/folder/*.parquet"
+df = spark.read.format("parquet").load(file_path)
+df.show()
+
+#To enable schema auto-merge in Databricks (especially for Delta Lake tables), you can use. Below bot conditions are needed for merge schema to work:
+spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
+
+df.write.format("delta") \
+  .mode("append") \
+  .option("mergeSchema", "true") \
+  .save("/mnt/delta/events")
+
+# The mergeSchema = True condition is not needed in case of merge query although spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true") needed:
+# Enable schema auto merge globally
+spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
+# No .option("mergeSchema", "true") needed here
+spark.sql("""
+MERGE INTO delta.`/mnt/delta/merge_target` AS target
+USING source_data AS source
+ON target.id = source.id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+""")
+
+
 
 
 
