@@ -31,7 +31,7 @@ else:
             WHEN MATCHED THEN DELETE
             """)
    df.write.option('mergeSchema', 'true').saveAsTable(SilverTableName, mode = 'append')
-####################################################################################################
+############################## Delta from bronze to silver ###########################################
 # There is another way to load Silver from bronze table i.e. use the data loaded in bronze
 df.write.option('mergeSchema', 'true').saveAsTable(BronzeTableName, mode = 'append')
 last_loaded_date = select max(watermarkCol) from silverTable
@@ -52,7 +52,32 @@ df = df.drop('rk')
             WHEN NOT MATCHED THEN INSERT *
             """)
 
+##################################### CDC from Bronze to silver ############################
+# make CDC enabled on bronze one time activity
+ALTER TABLE bronze_table SET TBLPROPERTIES (delta.enableChangeDataFeed = true);
 
+# Utilize the table_changes function to retrieve incremental changes from the bronze table
+SELECT * FROM table_changes('bronze_table', starting_version);
+# Replace starting_version with the appropriate version number from which you want to capture changes.
+# For each run, update a metadata table or checkpoint with the last processed version. below is metadata update for max_version of Bronze
+CREATE TABLE bronze_cdc_checkpoint (
+  table_name STRING PRIMARY KEY,
+  last_processed_version BIGINT,
+  updated_at TIMESTAMP
+);
+
+
+MERGE INTO silver_table AS target
+USING (
+  SELECT * FROM table_changes('bronze_table', starting_version)
+) AS source
+ON target.id = source.id
+WHEN MATCHED AND source._change_type = 'update' THEN
+  UPDATE SET *
+WHEN MATCHED AND source._change_type = 'delete' THEN
+  DELETE
+WHEN NOT MATCHED AND source._change_type = 'insert' THEN
+  INSERT *;
 
 
 
