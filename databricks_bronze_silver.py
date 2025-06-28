@@ -31,6 +31,26 @@ else:
             WHEN MATCHED THEN DELETE
             """)
    df.write.option('mergeSchema', 'true').saveAsTable(SilverTableName, mode = 'append')
+####################################################################################################
+# There is another way to load Silver from bronze table i.e. use the data loaded in bronze
+df.write.option('mergeSchema', 'true').saveAsTable(BronzeTableName, mode = 'append')
+last_loaded_date = select max(watermarkCol) from silverTable
+df = spark.sql(f"select * from BronzeTable where watermarkCol >= last_loaded_date")
+# It can have duplicate value so do the deduplication
+if orderByCol == '':
+  orderByCol = pk
+rowNumber = Window.partitionBy(PK).orderBY(desc(orderByCol))
+df = df.withColumn('rk', dense_rank().over(rownumber))
+df = df[df['rk']==1]
+df = df.drop('rk')
+# Then use below merge logic to load silver table
+  spark.sql("""
+            MERGE INTO {Target} AS target
+            USING {Source} AS source
+            ON target.id = source.id
+            WHEN MATCHED THEN UPDATE SET *
+            WHEN NOT MATCHED THEN INSERT *
+            """)
 
 
 
