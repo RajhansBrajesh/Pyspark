@@ -59,7 +59,7 @@ df = df.drop('rk')
             WHEN NOT MATCHED THEN INSERT *
             """)
 
-##################################### CDC from Bronze to silver ############################
+####################CDC from Bronze to silver not used anywhere ############################
 # make CDC enabled on bronze one time activity
 ALTER TABLE bronze_table SET TBLPROPERTIES (delta.enableChangeDataFeed = true);
 
