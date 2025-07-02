@@ -161,10 +161,55 @@ read_bronze_df.writeStream\
 
 
 
+#################### To read data from Eventhub like hybris and write to bronze and silver ########################
+
+kafka_opts = {
+    "kafka.bootstrap.servers": EH_BOOTSTRAP,
+    "subscribe": EH_NAME,
+    "kafka.security.protocol": "SASL_SSL",
+    "kafka.sasl.mechanism": "PLAIN",
+    "kafka.sasl.jaas.config": EH_JAAS,
+    "startingOffsets": "latest",
+    "failOnDataLoss": "false"
+}
 
 
 
+def pushstreamingdata(batch,id):
+  try:
+     batch.write.mode('append').format('delta').Save(bronzepath)
+    if is_delta_table_available(tgt_delta_table):
+      merge_condition = get_merge_condition()
+      tgt_deltatable.alias("t1").merge(batch_df.alias("s1"), merge_condition) \
+                                .whenMatchedDelete("s1._operation_type = 'D'") \
+                                .whenMatchUpdateAll("s1._operation_type != 'D'") \
+                                .whenNotMatchInsertAll("s1._operation_type != 'D'") 
+                                .execute()
+  else:
+   batch_df.write.option('mergeSchema', 'true').saveAsTable(SilverTableName, mode = 'overwrite')
 
+  except Exception as error:
+    raise Exception(f'Error occurred while merging, error msg: {error}')
+
+def deltaload():
+  raw_stream_df = spark
+                .readStream
+                .format("kafka")
+                .options(**kafka_opts)
+                .option("subscribe", kafkatopic)
+                .load()
+raw_stream_df.writeStream\
+             .format("delta")
+             .outputMode("update")\
+             .option("mergeschema", "true")\
+             .option("checkpointlocation", checkpoint_location)\
+             .trigger(once = True)\
+             .foreachBatch(pushStreamingdata)\
+             .start()
+
+
+##Run stream
+deltaload()
 
 
 
