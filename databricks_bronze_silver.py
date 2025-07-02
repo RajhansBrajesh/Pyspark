@@ -15,7 +15,8 @@ if extratiobType.lower() == 'full':
 else:
    # Below code will automatically merge the schema as spark config is True
   spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
-  spark.sql("""
+  if is_delta_table_available(Target):
+     spark.sql("""
             MERGE INTO {Target} AS target
             USING {Source} AS source
             ON target.id = source.id
@@ -23,14 +24,16 @@ else:
             WHEN NOT MATCHED THEN INSERT *
             """)
 
-  # There is another way of doing the same:
-    spark.sql("""
-            MERGE INTO {Target} AS target
-            USING {Source} AS source
-            ON target.id = source.id
-            WHEN MATCHED THEN DELETE
-            """)
-   df.write.option('mergeSchema', 'true').saveAsTable(SilverTableName, mode = 'append')
+    # There is another way of doing the same:
+      spark.sql("""
+              MERGE INTO {Target} AS target
+              USING {Source} AS source
+              ON target.id = source.id
+              WHEN MATCHED THEN DELETE
+              """)
+     df.write.option('mergeSchema', 'true').saveAsTable(SilverTableName, mode = 'append')
+else:
+    df.write.option('mergeSchema', 'true').saveAsTable(Target, mode = 'overwrite')
 ############################## Delta from bronze to silver ###########################################
 # There is another way to load Silver from bronze table i.e. use the data loaded in bronze
 df.write.option('mergeSchema', 'true').saveAsTable(BronzeTableName, mode = 'append')
