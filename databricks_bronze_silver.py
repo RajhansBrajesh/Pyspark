@@ -4,6 +4,10 @@ df = df_raw.withColumn("ADLS_LOADED_DATE", F.lit(triggerdate))
 #To replace special chartecter in column names
 df = df.select([F.col(col).alias(col.replace('-','')) for col in df.columns])
 
+# To check if a table is being loaded first time
+def is_delta_table_available(silver_table_df):
+  return len(silver_table_df.schema.fields)>0
+  
 # generally we use df_raw to write in Bronze and Silver both as written below
 df.write.option('mergeSchema', 'true').saveAsTable(BronzeTableName, mode = 'append')
 stagingTable = "stg_" +objectName
