@@ -3,4 +3,15 @@ use snake_case over camleCase in system like Python and SQL
 2. _ makes variable better to understand
 
 Liquid Clustering: https://docs.databricks.com/aws/en/delta/clustering
+-- Alter an existing table
+ALTER TABLE <table_name>
+CLUSTER BY (<clustering_columns>)
+Liquid cluster has advantage over Zordering that if keys changes it can optimize the table without reingesting the data.
+
+# optimize/compating/z-order
+def optimize():
+ max_hist_timestamp = spark.sql("select datediff(current_timestamp(), max(timestamp)) as diff from (describe history silver_table) where operation = 'optimize'").collect()[0][0]
+ spark.sql(f" optimize silver_table zorder by (pk1,pk2)")
+
+
 
