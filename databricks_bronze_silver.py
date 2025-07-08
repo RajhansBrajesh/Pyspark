@@ -67,11 +67,53 @@ ALTER TABLE bronze_table SET TBLPROPERTIES (delta.enableChangeDataFeed = true);
 SELECT * FROM table_changes('bronze_table', starting_version);
 # Replace starting_version with the appropriate version number from which you want to capture changes.
 # For each run, update a metadata table or checkpoint with the last processed version. below is metadata update for max_version of Bronze
-CREATE TABLE bronze_cdc_checkpoint (
+CREATE TABLE bronze_table_version_metadata (
   table_name STRING PRIMARY KEY,
   last_processed_version BIGINT,
   updated_at TIMESTAMP
 );
+
+# now actual code from WCMS by Nagapriya
+# Check if it is Full load. Check the brnze_table version logged in bronze_table_version_metadata control table
+if full_load_flag:
+  last_processed_version = None
+  initial load = True
+else:
+  try:
+    last_processed_version = spark.read.table(bronze_table_version_metadata).filter(col("table_name") == bronze_table_name).collect()[0]['last_processed_version']
+    initial_load = False
+  except:
+    last_processed_version = None
+    initial_load = True
+
+#Get current version from unity table
+broze_table = DeltaTable.forName(spark,bronze_table_name)
+current_verion = bronze_table.history(1).select("vesrion").collect()[0][0]
+
+#Load from bronze
+if initial_load:
+  bronze_data = spark.read.table(bronze_table_name)
+else:
+  if last_processed_version<current_version:
+    bronze_data = spark.read.option("readChangeData", "true").option("startingVersion", last_processed_version +1)\
+                  .table(bronze_table_name).filter("_change_type IN ('insert', 'update_postimage', 'delete')")
+  else:
+    bronze_data = None
+if bronze_data:
+  silver_table = DeltaTable.forName(spark,silver_table_name)
+  merge_condition = "target.id = source.id"
+
+  if initial_load:
+    bronze_data.drop("_change_type", "_commit_timestamp", "_commit_version", "_metadata")..write.option('mergeSchema', 'true').saveAsTable(silver_table_name, mode = 'overwrite')
+
+
+
+
+
+
+  
+
+
 
 
 MERGE INTO silver_table AS target
