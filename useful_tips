@@ -1,0 +1,6 @@
+use snake_case over camleCase in system like Python and SQL
+1.SQL is case insensetive that makes camleCase not useful
+2. _ makes variable better to understand
+
+Liquid Clustering: https://docs.databricks.com/aws/en/delta/clustering
+
