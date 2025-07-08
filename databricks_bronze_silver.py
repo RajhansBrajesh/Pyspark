@@ -105,28 +105,21 @@ if bronze_data:
 
   if initial_load:
     bronze_data.drop("_change_type", "_commit_timestamp", "_commit_version", "_metadata")..write.option('mergeSchema', 'true').saveAsTable(silver_table_name, mode = 'overwrite')
+    silver_table = DeltaTable.forName(spark,silver_table_name)
+  else:
+    window_spec = Window.partitionNy(primary_key_col_list).orderBy(col("_commit_version").desc())
+    deduplicate_bronze_data = bronze_data.withColumn("rank", row_number().over(window_spec)\
+                                   .filter("rank ==1")\
+                                   .drop("rank")
+   silver_table.alias("target").merge(deduplicate_bronze_data.alias("source"), merge_condition)
+                               .whenMatchedDelete( condition = "source._change_type = 'delete'")\
+                               .whenMatchedUpdate(set={col:f"source.{col} for col in common_columns})
+                               .whenNotMatchedInsert(condition = "source._change_type in ('insert', 'update_postimage')", values= {col:f"source.{col} for col in common_columns})\
+                               .execute()
 
 
-
-
-
-
-  
-
-
-
-
-MERGE INTO silver_table AS target
-USING (
-  SELECT * FROM table_changes('bronze_table', starting_version)
-) AS source
-ON target.id = source.id
-WHEN MATCHED AND source._change_type = 'update' THEN
-  UPDATE SET *
-WHEN MATCHED AND source._change_type = 'delete' THEN
-  DELETE
-WHEN NOT MATCHED AND source._change_type = 'insert' THEN
-  INSERT *;
+spark.sql(f"delete from {bronze_table_version_metadata} where table_name = '{bronze_table_name}'")
+spark.sql(f"insert inot {bronze_table_version_metadata} values ('{bronze_table_name}', {current_version})")
 
 ############################ SAP CDC implementation in use ########################
 
