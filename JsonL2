@@ -19,3 +19,5 @@ df6 = df.withColumn(
     when((col("age") > 22) & (col("name") != "Bob"), "Group A")
     .otherwise("Group B")
 )
+
+
