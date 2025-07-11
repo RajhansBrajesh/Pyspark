@@ -13,5 +13,7 @@ def optimize():
  max_hist_timestamp = spark.sql("select datediff(current_timestamp(), max(timestamp)) as diff from (describe history silver_table) where operation = 'optimize'").collect()[0][0]
  spark.sql(f" optimize silver_table zorder by (pk1,pk2)")
 
+# dir() is a built-in Python function that lists all attributes and methods of an object.
+dir(df.schema)
 
 
