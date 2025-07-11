@@ -49,3 +49,32 @@ def flatten(df):
    return df
 
 
+# To match the dataType of two df
+from pyspark.sql.functions import col, lit
+from pyspark.sql.types import StructType
+
+def match_schema(df1, df2):
+    """
+    Matches the schema of df1 to that of df2:
+    - Reorders columns
+    - Casts data types
+    - Adds missing columns as null
+    - Drops extra columns
+    """
+    target_schema: StructType = df2.schema
+    df1_columns = df1.columns
+    aligned_cols = []
+
+    for field in target_schema.fields:
+        col_name = field.name
+        col_type = field.dataType
+
+        if col_name in df1_columns:
+            aligned_cols.append(col(col_name).cast(col_type).alias(col_name))
+        else:
+            # Add missing column as null with correct type
+            aligned_cols.append(lit(None).cast(col_type).alias(col_name))
+
+    # Return df1 with schema matching df2
+    return df1.select(aligned_cols)
+
